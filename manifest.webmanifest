@@ -1,0 +1,20 @@
+{
+  "name": "スタッフの声 仕分け台",
+  "short_name": "仕分け台",
+  "description": "LINEで届いたスタッフの連絡を、改善点・購入品・共有事項・商品開発提案の4つに仕分けてタスク管理表にします。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F7F4EE",
+  "theme_color": "#F7F4EE",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
