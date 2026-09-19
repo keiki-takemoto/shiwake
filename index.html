@@ -81,8 +81,8 @@ img{max-width:100%}
 .gear{border:none;background:transparent;color:var(--ink-2);font-size:19px;line-height:1;padding:6px;border-radius:8px;cursor:pointer}
 .gear:hover{background:var(--surface-2)}
 main{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:0 0 84px}
-@media (min-width:900px){ main{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:20px;
-  padding:18px 16px 40px;align-items:start} .view{display:block!important} .tabbar{display:none} }
+@media (min-width:900px){ main{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:20px;
+  padding:18px 16px 40px;align-items:start} .view{display:block!important} .tabbar{display:none!important} }
 .view{padding:0}
 @media (max-width:899px){ .view[data-off]{display:none} }
 
@@ -93,6 +93,7 @@ main{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:0 0 84px}
   display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--ink-3);font-family:var(--disp)}
 .tabbar button .ic{font-size:17px;line-height:1.1}
 .tabbar button[aria-selected="true"]{color:var(--accent);font-weight:700}
+.tabbar .lb{display:inline-flex;align-items:center}
 .tabbar .pill{font-family:var(--mono);font-size:10px;background:var(--st-todo);color:#fff;border-radius:999px;
   padding:0 5px;margin-left:4px;vertical-align:1px}
 
@@ -164,6 +165,7 @@ textarea#paste::placeholder{color:var(--ink-3);font-size:14px}
 .catscroll{display:flex;gap:7px;overflow-x:auto;padding:11px 15px;border-bottom:1px solid var(--line);scrollbar-width:none}
 .catscroll::-webkit-scrollbar{display:none}
 .tlist{list-style:none;margin:0;padding:0}
+.listcard{container-type:inline-size}
 .trow{display:grid;gap:3px 9px;padding:12px 15px;border-bottom:1px solid var(--line);align-items:center;
   grid-template-columns:auto auto 1fr auto;
   grid-template-areas:"cat date pri act" "main main main main" "st st person person"}
@@ -187,8 +189,8 @@ select.status.s-完了{color:var(--st-done);border-color:var(--st-done)}
 .iconbtn{border:none;background:transparent;color:var(--ink-3);cursor:pointer;padding:5px 7px;border-radius:7px;font-size:14px;line-height:1}
 .iconbtn:hover{background:var(--surface-3);color:var(--ink)}
 .empty{padding:40px 22px;text-align:center;color:var(--ink-3);font-size:13.5px}
-@media (min-width:760px){
-  .trow{grid-template-columns:94px 106px minmax(0,1fr) 78px 40px 100px 38px;
+@container (min-width:660px){
+  .trow{grid-template-columns:86px 98px minmax(0,1fr) 68px 34px 90px 32px;
     grid-template-areas:"date cat main person pri st act";align-items:start;padding:11px 15px}
   .trow .c-st,.trow .c-pri,.trow .c-cat{padding-top:1px}
   .trow.head{display:grid;padding-top:9px;padding-bottom:9px;position:sticky;top:0;background:var(--surface);z-index:2}
@@ -297,7 +299,7 @@ select.status.s-完了{color:var(--st-done);border-color:var(--st-done)}
 
     <!-- ===== 一覧 ===== -->
     <section class="view" id="view-list" data-off>
-      <div class="card">
+      <div class="card listcard">
         <div class="catscroll" id="catscroll">
           <button class="chip" data-cat="all" aria-pressed="true">すべて <span class="n" data-n="all">0</span></button>
           <button class="chip" data-cat="改善点" aria-pressed="false">改善点 <span class="n" data-n="改善点">0</span></button>
@@ -322,7 +324,7 @@ select.status.s-完了{color:var(--st-done);border-color:var(--st-done)}
 
   <nav class="tabbar" role="tablist">
     <button role="tab" aria-selected="true" data-view="in"><span class="ic">✎</span>貼り付け</button>
-    <button role="tab" aria-selected="false" data-view="list"><span class="ic">☰</span>タスク表<span class="pill" id="tabPill" hidden>0</span></button>
+    <button role="tab" aria-selected="false" data-view="list"><span class="ic">☰</span><span class="lb">タスク表<span class="pill" id="tabPill" hidden>0</span></span></button>
   </nav>
 </div>
 
@@ -412,6 +414,12 @@ function rulePriority(t){
   if(/そのうち|いつか|余裕|急がな|落ち着いたら/.test(t)) return "低";
   return "中";
 }
+function splitTitle(t){
+  var m=t.match(/^([\s\S]{1,32}?[。．！？!?])([\s\S]+)$/);
+  if(m) return {title:m[1].replace(/[。．]$/,""), detail:m[2].trim()};
+  if(t.length>32) return {title:t.slice(0,30)+"…", detail:t};
+  return {title:t, detail:""};
+}
 function ruleParse(raw){
   var lines=raw.replace(/\r/g,"").split("\n");
   var dateRe=/^\s*(\d{4})[\/年.\-](\d{1,2})[\/月.\-](\d{1,2})日?\s*(?:[（(][^）)]*[）)])?\s*$/;
@@ -430,12 +438,13 @@ function ruleParse(raw){
   return items.filter(function(i){
     var t=i.text.trim();
     if(!t) return false;
-    if(t.length<=6 && /^(はい|了解(です)?|ok|OK|オッケー|ありがとう(ございます)?|おはようございます|お疲れ様です|よろしく(お願いします)?|👍|！|。)+$/.test(t)) return false;
+    if(t.length<=14 && /^(はい|うい|了解(です|しました)?|りょうかい(です)?|承知(です|しました)?|かしこまりました|ok|OK|オッケー|おけ|ありがとう(ございます|ございました)?|あざす|おはよう(ございます)?|こんにちは|おつかれ(さま)?(です)?|お疲れ(様|さま)?(です|でした)?|よろしく(お願いします|お願いいたします)?|わかりました|分かりました|👍|🙇|！|。|笑)+[\s！。ー～]*$/.test(t)) return false;
     if(/^\[(スタンプ|写真|画像|動画|アルバム|ファイル|ボイスメッセージ)\]$/.test(t)) return false;
     return true;
   }).map(function(i){
+    var sp=splitTitle(i.text);
     return {date:i.date||"",dateEstimated:!i.date,category:ruleCategory(i.text),
-      title:i.text.length>28?i.text.slice(0,28)+"…":i.text, detail:i.text.length>28?i.text:"",
+      title:sp.title, detail:sp.detail,
       person:i.person,priority:rulePriority(i.text),source:i.text.slice(0,140)};
   });
 }
