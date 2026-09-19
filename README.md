@@ -35,5 +35,7 @@ Excelに持っていくときは「CSVで書き出す」。
 
 - 画面と動きは `index.html` の1ファイルだけ。
 - 直したら `sw.js` の `CACHE = "shiwake-v1"` の番号を1つ上げる（そうしないと古い画面が残ります）。
-- アイコンを作り直すときは `python3 make_icons.py`。
+- アイコンは `python3 make_icons.py B`（A〜Dの4案。`sheet` で比較用の1枚が出ます）。
+  お店のロゴを使うなら `sips -Z 512 logo.png --out icons/icon-512.png` のように作り直す。
+- アイコンを変えたら、ホーム画面のアプリを一度削除して追加し直さないと、古い絵のままです。
 - mainブランチに push すると GitHub Pages に反映されます（1分ほど）。
