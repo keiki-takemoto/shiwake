@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """アプリアイコンを生成する（外部ライブラリ不要）。
-  python3 make_icons.py [A|B|C|D]   … 選んだ案で icons/ を作り直す
+  python3 make_icons.py [Z|A|B|C|D] … 選んだ案で icons/ を作り直す（既定はZ＝ZIPANGの頭文字）
   python3 make_icons.py sheet       … 候補を並べた比較用の1枚を作る
 """
 import struct, zlib, os, sys
@@ -12,6 +12,8 @@ CATS  = [(0xE0,0xA1,0x71),   # 改善点
          (0x9A,0xB0,0xE4),   # 共有事項
          (0xD7,0x9B,0xC2)]   # 商品開発提案
 BAR   = (0xF0,0xEA,0xDC)
+ENJI  = (0x8C, 0x23, 0x31)   # 店の卓布の臙脂
+KINU  = (0xF4, 0xEC, 0xDC)   # 生成り（文字）
 
 def blend(d, s, a): return tuple(round(x*(1-a) + y*a) for x, y in zip(d, s))
 
@@ -58,7 +60,49 @@ def art_D(px, s):            # 4区分の積み上がり（件数のしるし）
         rrect(px, s, s, x, base-hh*s, x+bw, base, bw*0.36, col)
     rrect(px, s, s, x0-0.02*s, base+0.028*s, x0+total+0.02*s, base+0.062*s, 0.017*s, BAR, 0.55)
 
-ART = {"A": (art_A, INK), "B": (art_B, INK), "C": (art_C, INK), "D": (art_D, INK)}
+def fill_polys(s, polys, ss=3):
+    """多角形を塗る。ss倍で描いてから縮めるので、斜めの線がなめらかになる。
+    戻り値は 0.0〜1.0 の濃さの表。"""
+    S = s*ss
+    cov = [bytearray(S) for _ in range(S)]
+    for poly in polys:
+        pts = [(x*ss, y*ss) for x, y in poly]
+        ys = [p[1] for p in pts]
+        for y in range(max(0, int(min(ys))), min(S, int(max(ys))+1)):
+            yc, xs = y+0.5, []
+            for i in range(len(pts)):
+                x1, y1 = pts[i]; x2, y2 = pts[(i+1) % len(pts)]
+                if (y1 <= yc < y2) or (y2 <= yc < y1):
+                    xs.append(x1 + (yc-y1)*(x2-x1)/(y2-y1))
+            xs.sort()
+            row = cov[y]
+            for i in range(0, len(xs)-1, 2):
+                for x in range(max(0, int(xs[i]+0.5)), min(S, int(xs[i+1]+0.5))):
+                    row[x] = 1
+    out = []
+    inv = 1.0/(ss*ss)
+    for y in range(s):
+        rows = cov[y*ss:(y+1)*ss]
+        out.append([sum(r[x*ss:(x+1)*ss].count(1) for r in rows)*inv for x in range(s)])
+    return out
+
+def art_Z(px, s):            # ZIPANGの頭文字
+    x0, x1 = 0.215*s, 0.785*s
+    y0, y1 = 0.235*s, 0.765*s
+    t  = 0.108*s             # 横棒の太さ
+    wd = 0.205*s             # 斜め棒の（横方向の）太さ
+    polys = [
+        [(x0, y0), (x1, y0), (x1, y0+t), (x0, y0+t)],
+        [(x0, y1-t), (x1, y1-t), (x1, y1), (x0, y1)],
+        [(x1, y0+t), (x1-wd, y0+t), (x0, y1-t), (x0+wd, y1-t)],
+    ]
+    cov = fill_polys(s, polys)
+    for y in range(s):
+        for x in range(s):
+            a = cov[y][x]
+            if a > 0: px[y][x] = blend(px[y][x], KINU, a)
+
+ART = {"Z": (art_Z, ENJI), "A": (art_A, INK), "B": (art_B, INK), "C": (art_C, INK), "D": (art_D, INK)}
 
 def png(px, s):
     raw = b"".join(b"\x00" + bytes(v for p in row for v in p) for row in px)
@@ -85,7 +129,7 @@ def write_sheet():
     tile, pad, s = 330, 40, 40
     W = pad*2 + tile*2 + s
     sheet = canvas(W, (0x9A, 0x96, 0x8E))
-    for i, plan in enumerate("ABCD"):
+    for i, plan in enumerate("ZBCD"):
         src = render(plan, tile)
         ox = pad + (i % 2)*(tile+s); oy = pad + (i//2)*(tile+s)
         r = tile*0.225
@@ -98,5 +142,5 @@ def write_sheet():
     out = os.path.join(HERE, "icon-candidates.png")
     open(out, "wb").write(png(sheet, W)); print(out)
 
-arg = (sys.argv[1] if len(sys.argv) > 1 else "A").upper()
+arg = (sys.argv[1] if len(sys.argv) > 1 else "Z").upper()
 write_sheet() if arg == "SHEET" else write_set(arg)
