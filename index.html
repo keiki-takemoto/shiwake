@@ -280,6 +280,7 @@ select.status.s-完了{color:var(--st-done);border-color:var(--st-done)}
           <div class="tips">
             <b>使い方</b><br>
             LINEでトークを長押し→コピー→このアプリで「貼り付け」→「仕分ける」。<br>
+            商品の提案など<b>複数まとめて</b>送るときは、1行に1つ書くか「・」「①」で始めると、1件ずつ別のタスクになります。<br>
             提案日は<b>その日の日付（記帳日）</b>が入ります。あとからまとめて入力するときだけ
             「本文の日付を使う」にすると、日付行（<code>2026/09/19(金)</code>）を読み取ります。
           </div>
@@ -397,8 +398,8 @@ function saveTasks(){ set(K_TASKS,tasks) }
 
 /* ================= 仕分け ================= */
 var KW={
-  "購入品":[/買っ/,/購入/,/発注/,/注文/,/補充/,/仕入/,/切れ(そう|まし|て)/,/在庫/,/無くな|なくな/,/足りな/,/取り寄せ/,/頼(んで|みたい)/],
-  "商品開発提案":[/新(商品|メニュー|作)/,/限定(商品|メニュー)?/,/商品化/,/開発/,/試作/,/レシピ/,/メニューに(加|入)/,/売っ(たら|てみ)/,/アイデア/],
+  "購入品":[/買っ/,/購入/,/発注/,/注文/,/補充/,/仕入/,/切れ(そう|まし|て)/,/在庫/,/無くな|なくな/,/足りな/,/取り寄せ/,/頼(んで|みたい)/,/あと[0-9０-９]+\s*(本|個|枚|袋|箱|パック|セット|ロール|缶|台)/,/残り[0-9０-９]/,/少なく?な(い|って|り)/,/ラスト[0-9０-９]/],
+  "商品開発提案":[/新(商品|メニュー|作)/,/限定(商品|メニュー)?/,/商品化/,/開発/,/試作/,/レシピ/,/メニューに(加|入)/,/売っ(たら|てみ)/,/アイデア/,/グッズ/,/新作/,/ノベルティ/,/作れない/,/作っては/,/どうでしょう/],
   "改善点":[/改善/,/直し(て|た)/,/使いにく/,/不便/,/壊れ/,/故障/,/動かな/,/遅い/,/クレーム/,/汚れ/,/危な|危険/,/狭い|渋滞/,/漏れ|詰まり/,/(ほう|方)がい[いよ]/,/してほしい/,/困っ/,/ミス/,/分かりにく|わかりにく/]
 };
 function ruleCategory(t){
@@ -420,33 +421,69 @@ function splitTitle(t){
   if(t.length>32) return {title:t.slice(0,30)+"…", detail:t};
   return {title:t, detail:""};
 }
+/* 箇条書き・番号つきの行を見分ける */
+var BULLET=/^\s*(?:[・･･\-\u2010-\u2015\u2022*\uFF0A\u25AA\u25E6\u25CF\u25CB\u25A0\u25A1\u2713]|[(\uFF08]?\d{1,2}[)\uFF09.\uFF0E\u3001\u3002]|[\u2460-\u2473]|[\u30A2-\u30F3][)\uFF09.\uFF0E\u3001])[ \u3000]*/;
+function isBullet(t){ return BULLET.test(t) }
+function stripBullet(t){ return t.replace(BULLET,"").trim() }
+/* 「新商品の提案です」「買ってほしいもの：」のような、次の行たちの見出し */
+function isHeader(t){
+  t=t.trim();
+  if(t.length>26||isBullet(t)) return false;
+  if(/[：:]$/.test(t)) return true;
+  return /(提案|お願い|希望|要望|下記|以下|リスト|一覧|候補|ほしい|欲しい|案|アイデア|アイディア)(です|します|いたします|もの|物|の件)?[。！!\s]*$/.test(t);
+}
+function isNoise(t){
+  if(!t) return true;
+  if(t.length<=14 && /^(はい|うい|了解(です|しました)?|りょうかい(です)?|承知(です|しました)?|かしこまりました|ok|OK|オッケー|おけ|ありがとう(ございます|ございました)?|あざす|おはよう(ございます)?|こんにちは|おつかれ(さま)?(です)?|お疲れ(様|さま)?(です|でした)?|よろしく(お願いします|お願いいたします)?|わかりました|分かりました|👍|🙇|！|。|笑)+[\s！。ー～]*$/.test(t)) return true;
+  if(/^\[(スタンプ|写真|画像|動画|アルバム|ファイル|ボイスメッセージ)\]$/.test(t)) return true;
+  return false;
+}
+/* 1つの発言を、用件ごとに分ける。
+   箇条書きが2つ以上あればそれぞれ1件。見出し＋複数行も1行ずつ1件にする。 */
+function explode(msg){
+  var lines=msg.lines.map(function(l){return l.trim()}).filter(Boolean);
+  if(!lines.length) return [];
+  var head="";
+  if(lines.length>=2 && isHeader(lines[0])){ head=lines[0]; lines=lines.slice(1) }
+  if(!lines.length) return [{text:head,head:""}];
+  var bl=lines.filter(isBullet);
+  if(bl.length>=2){
+    var rest=lines.filter(function(l){return !isBullet(l)}).join(" ").trim();
+    var h=[head,rest].filter(Boolean).join(" ");
+    return bl.map(function(b){ return {text:stripBullet(b),head:h} });
+  }
+  if(lines.length>=2 && (head||!msg.timed)) return lines.map(function(l){ return {text:stripBullet(l),head:head} });
+  return [{text:lines.join(" "),head:head}];
+}
 function ruleParse(raw){
   var lines=raw.replace(/\r/g,"").split("\n");
   var dateRe=/^\s*(\d{4})[\/年.\-](\d{1,2})[\/月.\-](\d{1,2})日?\s*(?:[（(][^）)]*[）)])?\s*$/;
   var tabRe=/^\s*(\d{1,2}:\d{2})\t([^\t]*)\t([\s\S]*)$/;
   var spRe=/^\s*(\d{1,2}:\d{2})[ 　]+(\S{1,16})[ 　]+(.+)$/;
-  var cur="",items=[],last=null;
+  var cur="", msgs=[], m0=null;
   lines.forEach(function(ln){
     var m=ln.match(dateRe);
-    if(m){ cur=m[1]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[3]).padStart(2,"0"); last=null; return }
+    if(m){ cur=m[1]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[3]).padStart(2,"0"); m0=null; return }
     var t=ln.match(tabRe)||ln.match(spRe);
-    if(t){ last={date:cur,person:(t[2]||"").trim(),text:(t[3]||"").trim()}; items.push(last); return }
+    if(t){ m0={date:cur,person:(t[2]||"").trim(),lines:[(t[3]||"").trim()],timed:true}; msgs.push(m0); return }
     var s=ln.trim();
-    if(!s){ last=null; return }
-    if(last) last.text+=" "+s; else { last={date:cur,person:"",text:s}; items.push(last) }
+    if(!s){ m0=null; return }
+    if(m0) m0.lines.push(s);
+    else { m0={date:cur,person:"",lines:[s],timed:false}; msgs.push(m0) }
   });
-  return items.filter(function(i){
-    var t=i.text.trim();
-    if(!t) return false;
-    if(t.length<=14 && /^(はい|うい|了解(です|しました)?|りょうかい(です)?|承知(です|しました)?|かしこまりました|ok|OK|オッケー|おけ|ありがとう(ございます|ございました)?|あざす|おはよう(ございます)?|こんにちは|おつかれ(さま)?(です)?|お疲れ(様|さま)?(です|でした)?|よろしく(お願いします|お願いいたします)?|わかりました|分かりました|👍|🙇|！|。|笑)+[\s！。ー～]*$/.test(t)) return false;
-    if(/^\[(スタンプ|写真|画像|動画|アルバム|ファイル|ボイスメッセージ)\]$/.test(t)) return false;
-    return true;
-  }).map(function(i){
-    var sp=splitTitle(i.text);
-    return {date:i.date||"",dateEstimated:!i.date,category:ruleCategory(i.text),
-      title:sp.title, detail:sp.detail,
-      person:i.person,priority:rulePriority(i.text),source:i.text.slice(0,140)};
+  var out=[];
+  msgs.forEach(function(msg){
+    explode(msg).forEach(function(it){
+      var t=it.text;
+      if(isNoise(t)) return;
+      var ctx=(it.head?it.head+" ":"")+t;
+      var sp=splitTitle(t);
+      out.push({date:msg.date||"", dateEstimated:!msg.date, category:ruleCategory(ctx),
+        title:sp.title, detail:sp.detail||it.head, person:msg.person,
+        priority:rulePriority(ctx), source:((it.head?it.head+"｜":"")+t).slice(0,140)});
+    });
   });
+  return out;
 }
 function buildPrompt(raw){
   return "あなたは店舗の店長を助けるアシスタントです。以下は店舗スタッフからLINEで届いた連絡です。これを店長のタスク管理表に変換してください。\n\n"+
