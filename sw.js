@@ -1,6 +1,6 @@
 /* スタッフの声 仕分け台 — オフラインで動かすための仕組み。
    ファイルを更新したら CACHE の番号を1つ上げる。 */
-const CACHE = "shiwake-v3";
+const CACHE = "shiwake-v4";
 const SHELL = [
   "./",
   "./index.html",

@@ -13,6 +13,7 @@ CATS  = [(0xE0,0xA1,0x71),   # 改善点
          (0xD7,0x9B,0xC2)]   # 商品開発提案
 BAR   = (0xF0,0xEA,0xDC)
 ENJI  = (0x8C, 0x23, 0x31)   # 店の卓布の臙脂
+KURO  = (0x00, 0x00, 0x00)   # 黒（現行の地）
 KINU  = (0xF4, 0xEC, 0xDC)   # 生成り（文字）
 
 def blend(d, s, a): return tuple(round(x*(1-a) + y*a) for x, y in zip(d, s))
@@ -102,7 +103,7 @@ def art_Z(px, s):            # ZIPANGの頭文字
             a = cov[y][x]
             if a > 0: px[y][x] = blend(px[y][x], KINU, a)
 
-ART = {"Z": (art_Z, ENJI), "A": (art_A, INK), "B": (art_B, INK), "C": (art_C, INK), "D": (art_D, INK)}
+ART = {"Z": (art_Z, KURO), "A": (art_A, INK), "B": (art_B, INK), "C": (art_C, INK), "D": (art_D, INK)}
 
 def png(px, s):
     raw = b"".join(b"\x00" + bytes(v for p in row for v in p) for row in px)
